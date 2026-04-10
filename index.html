@@ -122,14 +122,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
       <div>
         <div class="sec-lbl">Weeks</div>
         <div id="sidebar-weeks"></div>
-        <div style="margin-top:8px">
-          <div style="font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:6px">Add week by date</div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <input type="date" id="new-week-date" style="flex:1;font-family:'Syne',sans-serif;font-size:12px;padding:7px 9px;border-radius:var(--r);border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.07);color:#fff;color-scheme:dark"/>
-            <button type="button" onclick="addWeekFromDate()" style="font-family:'Syne',sans-serif;font-size:12px;padding:7px 10px;border-radius:var(--r);border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;cursor:pointer;white-space:nowrap">Add</button>
-          </div>
-          <div id="week-add-msg" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:5px;height:16px"></div>
-        </div>
+        <button type="button" onclick="addNextWeek()" style="margin-top:8px;font-family:'Syne',sans-serif;font-size:12px;padding:8px 12px;border-radius:var(--r);border:1px dashed rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.4);cursor:pointer;text-align:left;width:100%;transition:all .15s" onmouseover="this.style.color='rgba(255,255,255,.8)'" onmouseout="this.style.color='rgba(255,255,255,.4)'">+ Add next week</button>
       </div>
       <div class="sidebar-actions">
         <button type="button" class="save-btn" id="save-btn">Save &amp; sync</button>
@@ -280,22 +273,14 @@ function onClientWeekChange(wk){
   else{populateClientView();}
 }
 
-function addWeekFromDate(){
-  const input=document.getElementById('new-week-date');
-  const msg=document.getElementById('week-add-msg');
-  const val=input.value;
-  if(!val){msg.textContent='Pick a date first.';return;}
-  const mon=getMon(new Date(val+'T12:00:00'));
-  if(all[mon]){
-    cur=mon;
-    msg.textContent='Week already exists — switched to it.';
-  } else {
-    all[mon]=blank();
-    cur=mon;
-    msg.textContent='Week added!';
-  }
-  setTimeout(()=>msg.textContent='',2500);
-  input.value='';
+function addNextWeek(){
+  const s=sorted().filter(isValidIso);
+  const last=s.length>0?s[s.length-1]:todayMon;
+  const nd=new Date(last+'T12:00:00');
+  nd.setDate(nd.getDate()+7);
+  const nk=nd.toISOString().slice(0,10);
+  if(!all[nk])all[nk]=blank();
+  cur=nk;
   buildSidebarWeeks();buildClientNav();buildTables();updateFooters();updateWkLabel();
 }
 
