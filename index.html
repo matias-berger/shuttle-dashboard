@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Shuttle Ridership Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{--ink:#111110;--ink2:#555550;--ink3:#999990;--paper:#fafaf8;--card:#ffffff;--line:rgba(0,0,0,0.09);--line2:rgba(0,0,0,0.15);--am:#1d4ed8;--am-light:#dbeafe;--am-dark:#1e3a8a;--pm:#b45309;--pm-light:#fef3c7;--pm-dark:#78350f;--green:#15803d;--red:#dc2626;--r:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Syne',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh}
+.page{display:none}.page.active{display:block}
+.admin-layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+.sidebar{background:var(--ink);color:#fff;padding:28px 22px;display:flex;flex-direction:column;gap:26px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-logo{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4)}
+.sidebar-title{font-size:19px;font-weight:600;line-height:1.3;margin-top:5px}
+.route-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,.1)}
+.route-item:last-child{border-bottom:1px solid rgba(255,255,255,.1)}
+.rdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.rdot.am{background:#93c5fd}.rdot.pm{background:#fcd34d}
+.rtext{font-size:12px;line-height:1.5}.rtime{font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,.4);margin-top:2px}
+.sec-lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:6px}
+.week-btn{font-size:12px;font-family:'Syne',sans-serif;padding:8px 12px;border-radius:var(--r);border:1px solid rgba(255,255,255,.1);background:transparent;color:rgba(255,255,255,.6);cursor:pointer;text-align:left;transition:all .15s;width:100%;margin-bottom:4px}
+.week-btn:hover{background:rgba(255,255,255,.08);color:#fff}
+.week-btn.active{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3)}
+.add-week-btn{font-size:12px;font-family:'Syne',sans-serif;padding:8px 12px;border-radius:var(--r);border:1px dashed rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.4);cursor:pointer;text-align:left;width:100%;transition:all .15s}
+.add-week-btn:hover{color:rgba(255,255,255,.7)}
+.sidebar-actions{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+.save-btn{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;padding:12px;border-radius:var(--r);border:none;background:#fff;color:var(--ink);cursor:pointer;transition:opacity .15s}
+.save-btn:hover{opacity:.9}.save-btn:disabled{opacity:.5;cursor:not-allowed}
+.preview-btn{font-family:'Syne',sans-serif;font-size:13px;padding:12px;border-radius:var(--r);border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;cursor:pointer}
+.preview-btn:hover{background:rgba(255,255,255,.08)}
+.sync-status{font-size:11px;text-align:center;height:18px;transition:all .3s}
+.sync-ok{color:#86efac}.sync-err{color:#fca5a5}.sync-ing{color:rgba(255,255,255,.5)}
+.admin-content{padding:32px 36px;overflow-y:auto}
+.admin-header{margin-bottom:22px}
+.admin-header h2{font-size:21px;font-weight:600}
+.admin-header p{font-size:13px;color:var(--ink2);margin-top:4px}
+.wk-lbl{font-size:13px;font-weight:500;color:var(--ink2);background:var(--line);padding:4px 12px;border-radius:20px;display:inline-block;margin-bottom:22px}
+.shift-block{margin-bottom:30px}
+.shift-hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.shift-badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:.05em}
+.shift-badge.am{background:var(--am-light);color:var(--am-dark)}
+.shift-badge.pm{background:var(--pm-light);color:var(--pm-dark)}
+.shift-route-text{font-size:12px;color:var(--ink2)}
+.tbl-wrap{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3);text-align:left;padding:10px 13px;background:#fafaf8;border-bottom:1px solid var(--line)}
+tbody td{padding:8px 13px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#fafaf8}
+tfoot td{padding:8px 13px;font-size:12px;color:var(--ink2);background:#fafaf8;border-top:1px solid var(--line);font-weight:500;font-family:'DM Mono',monospace}
+input[type=number]{font-family:'DM Mono',monospace;background:#f5f5f3;border:1px solid var(--line2);border-radius:6px;padding:5px 6px;font-size:13px;color:var(--ink);text-align:center;transition:border .15s,background .15s}
+input[type=number]:focus{outline:none;border-color:var(--am);background:#fff}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+.w70{width:70px}.w54{width:54px}
+.col-sep{border-left:1px solid var(--line) !important}
+.unalloc{font-size:11px;font-family:'DM Mono',monospace}
+.u-ok{color:var(--green);font-weight:500}.u-under{color:var(--ink2)}.u-over{color:var(--red)}.u-empty{color:var(--ink3)}
+.client-page{min-height:100vh}
+.client-hdr{padding:24px 32px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.client-hdr h1{font-size:24px;font-weight:600;letter-spacing:-.02em}
+.client-hdr p{font-size:13px;color:var(--ink2);margin-top:4px}
+.back-btn{font-family:'Syne',sans-serif;font-size:12px;padding:7px 14px;border-radius:var(--r);border:1px solid var(--line2);background:transparent;color:var(--ink2);cursor:pointer}
+.back-btn:hover{background:var(--line)}
+.client-wnav{display:flex;gap:6px;padding:18px 32px 0;flex-wrap:wrap}
+.week-select{font-family:'Syne',sans-serif;font-size:13px;padding:7px 14px;border-radius:20px;border:1px solid var(--line2);background:var(--card);color:var(--ink);cursor:pointer;appearance:none;-webkit-appearance:none;padding-right:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.week-select:focus{outline:none;border-color:var(--ink)}
+.client-main{padding:22px 32px 60px;max-width:900px}
+.sum-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}
+.sum-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:17px 20px}
+.sum-lbl{font-size:11px;color:var(--ink3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:7px}
+.sum-val{font-size:30px;font-weight:400;font-family:'DM Mono',monospace;letter-spacing:-.02em}
+.sum-sub{font-size:11px;color:var(--ink2);margin-top:4px}
+.shift-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:18px;overflow:hidden}
+.sc-hdr{padding:15px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.sc-hdr h3{font-size:15px;font-weight:600}
+.sc-hdr .sub{font-size:12px;color:var(--ink2);margin-top:3px}
+.sc-total .num{font-size:27px;font-weight:400;font-family:'DM Mono',monospace}
+.sc-total .lbl{font-size:11px;color:var(--ink3);text-align:right}
+.day-row{border-bottom:1px solid var(--line)}.day-row:last-child{border-bottom:none}
+.day-row-hdr{padding:11px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:background .1s}
+.day-row-hdr:hover{background:#fafaf8}
+.day-row-name{font-size:13px;font-weight:600}
+.day-row-total{font-size:13px;font-family:'DM Mono',monospace;color:var(--ink2)}
+.dep-grid{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);background:#fafaf8}
+.dep-cell{padding:13px 10px;text-align:center;border-right:1px solid var(--line)}
+.dep-cell:last-child{border-right:none}
+.dep-num{font-size:20px;font-weight:400;font-family:'DM Mono',monospace}
+.dep-lbl{font-size:10px;color:var(--ink3);margin-top:4px;letter-spacing:.05em;text-transform:uppercase}
+.day-body{display:none}.day-body.open{display:block}
+.chevron{font-size:10px;color:var(--ink3);transition:transform .2s;display:inline-block}
+.chevron.open{transform:rotate(180deg)}
+.chart-sec{margin-top:28px}
+.chart-sec h3{font-size:14px;font-weight:600;margin-bottom:14px}
+.legend{display:flex;gap:16px;margin-bottom:12px;font-size:12px;color:var(--ink2)}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.no-data{padding:26px 20px;text-align:center;font-size:13px;color:var(--ink3)}
+.loading-overlay{display:flex;align-items:center;justify-content:center;padding:60px;font-size:13px;color:var(--ink3)}
+@media(max-width:700px){.admin-layout{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.admin-content{padding:20px 16px}.client-hdr,.client-main,.client-wnav{padding-left:16px;padding-right:16px}.sum-grid{grid-template-columns:1fr 1fr}.dep-grid{grid-template-columns:repeat(3,1fr)}}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:9999}
+.modal-overlay.open{display:flex}
+.modal-box{background:#fff;border-radius:12px;padding:32px;max-width:440px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
+.modal-box h3{font-size:18px;font-weight:600;margin-bottom:6px}
+.modal-box p{font-size:13px;color:#6b6b63;margin-bottom:20px}
+.modal-row{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.modal-row label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#999990}
+.modal-row select{font-family:'Syne',sans-serif;font-size:13px;padding:9px 12px;border-radius:8px;border:1px solid rgba(0,0,0,0.15);background:#fafaf8;color:#111110;width:100%}
+.modal-actions{display:flex;gap:8px;margin-top:24px}
+.modal-btn-primary{flex:1;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;padding:11px;border-radius:8px;border:none;background:#111110;color:#fff;cursor:pointer}
+.modal-btn-secondary{font-family:'Syne',sans-serif;font-size:13px;padding:11px 16px;border-radius:8px;border:1px solid rgba(0,0,0,0.15);background:transparent;color:#6b6b63;cursor:pointer}
+.report-btn{font-family:'Syne',sans-serif;font-size:13px;padding:12px;border-radius:var(--r);border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;text-align:center;width:100%}
+.report-btn:hover{background:rgba(255,255,255,.15)}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+</head>
+<body>
+
+<!-- ADMIN -->
+<div class="page" id="page-admin">
+  <div class="admin-layout">
+    <div class="sidebar">
+      <div>
+        <div class="sidebar-logo">Shuttle Ops</div>
+        <div class="sidebar-title">Ridership Dashboard</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:4px">Hayward, CA · Mon–Fri</div>
+      </div>
+      <div>
+        <div class="sec-lbl">Routes</div>
+        <div class="route-item"><div class="rdot am"></div><div><div class="rtext">Bay Center Pl → Clawiter Rd</div><div class="rtime">AM · 5:15 – 6:30</div></div></div>
+        <div class="route-item"><div class="rdot pm"></div><div><div class="rtext">Clawiter Rd → Bay Center Pl</div><div class="rtime">PM · 2:35 – 3:35</div></div></div>
+      </div>
+      <div>
+        <div class="sec-lbl">Weeks</div>
+        <select id="nav-month" onchange="onNavMonthChange()" style="font-family:'Syne',sans-serif;font-size:12px;padding:7px 9px;border-radius:var(--r);border:1px solid rgba(255,255,255,.2);background:#1e1e1c;color:#fff;width:100%;cursor:pointer;color-scheme:dark;margin-bottom:6px"></select>
+        <select id="nav-week" onchange="onNavWeekChange(this.value)" style="font-family:'Syne',sans-serif;font-size:12px;padding:7px 9px;border-radius:var(--r);border:1px solid rgba(255,255,255,.2);background:#1e1e1c;color:#fff;width:100%;cursor:pointer;color-scheme:dark;margin-bottom:4px"></select>
+        <div style="display:flex;gap:4px;margin-bottom:10px">
+          <button type="button" id="nav-up" onclick="moveWeek(cur,-1)" title="Move week up" style="font-size:11px;padding:4px 8px;border-radius:4px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.4);cursor:pointer;flex:1">↑ Move</button>
+          <button type="button" id="nav-dn" onclick="moveWeek(cur,1)" title="Move week down" style="font-size:11px;padding:4px 8px;border-radius:4px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.4);cursor:pointer;flex:1">↓ Move</button>
+        </div>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:2px">Add week</div>
+          <select id="new-week-month" onchange="updateWeekOptions()" style="font-family:'Syne',sans-serif;font-size:12px;padding:7px 9px;border-radius:var(--r);border:1px solid rgba(255,255,255,.2);background:#1e1e1c;color:#fff;width:100%;cursor:pointer;color-scheme:dark"></select>
+          <select id="new-week-select" style="font-family:'Syne',sans-serif;font-size:12px;padding:7px 9px;border-radius:var(--r);border:1px solid rgba(255,255,255,.2);background:#1e1e1c;color:#fff;width:100%;cursor:pointer;color-scheme:dark"></select>
+          <button type="button" onclick="addSelectedWeek()" style="font-family:'Syne',sans-serif;font-size:12px;padding:7px;border-radius:var(--r);border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;cursor:pointer;width:100%">+ Add week</button>
+          <button type="button" onclick="deleteCurrentWeek()" style="font-family:'Syne',sans-serif;font-size:12px;padding:7px;border-radius:var(--r);border:1px solid rgba(220,38,38,.4);background:rgba(220,38,38,.1);color:#fca5a5;cursor:pointer;width:100%">Delete current week</button>
+          <div id="week-msg" style="font-size:11px;color:rgba(255,255,255,.4);height:16px"></div>
+        </div>
+      </div>
+      <div class="sidebar-actions">
+        <button type="button" class="save-btn" id="save-btn">Save &amp; sync</button>
+        <button type="button" class="preview-btn" onclick="openClient()">Preview client view →</button>
+        <button type="button" class="report-btn" onclick="openReportModal()">📊 Generate report</button>
+        <button type="button" class="report-btn" onclick="exportData()" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.12);color:rgba(255,255,255,.6)">⬇ Export data (JSON)</button>
+        <div class="sync-status" id="sync-status"></div>
+      </div>
+    </div>
+    <div class="admin-content">
+      <div class="admin-header">
+        <h2>Enter ridership data</h2>
+        <p>Input the shift total and each departure. Client view updates after saving.</p>
+      </div>
+      <div class="wk-lbl" id="admin-week-label">—</div>
+      <div class="shift-block">
+        <div class="shift-hdr"><span class="shift-badge am">AM Shift</span><span class="shift-route-text">5:15 AM – 9:00 AM · Bay Center Pl → Clawiter Rd · continuous</span></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th style="width:50px">Day</th><th style="width:78px">Shift total</th><th class="col-sep" style="width:62px">Dep 1</th><th style="width:62px">Dep 2</th><th style="width:62px">Dep 3</th><th style="width:62px">Dep 4</th><th style="width:62px">Dep 5</th><th class="col-sep" style="width:90px">Unallocated</th></tr></thead>
+            <tbody id="am-tbody"></tbody>
+            <tfoot><tr><td>Totals</td><td id="fam-t">—</td><td id="fam-0" class="col-sep">—</td><td id="fam-1">—</td><td id="fam-2">—</td><td id="fam-3">—</td><td id="fam-4">—</td><td class="col-sep"></td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+      <div class="shift-block">
+        <div class="shift-hdr"><span class="shift-badge pm">PM Shift</span><span class="shift-route-text">2:30 PM – 5:45 PM · Clawiter Rd → Bay Center Pl · continuous</span></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th style="width:50px">Day</th><th style="width:78px">Shift total</th><th class="col-sep" style="width:62px">Dep 1</th><th style="width:62px">Dep 2</th><th style="width:62px">Dep 3</th><th style="width:62px">Dep 4</th><th style="width:62px">Dep 5</th><th class="col-sep" style="width:90px">Unallocated</th></tr></thead>
+            <tbody id="pm-tbody"></tbody>
+            <tfoot><tr><td>Totals</td><td id="fpm-t">—</td><td id="fpm-0" class="col-sep">—</td><td id="fpm-1">—</td><td id="fpm-2">—</td><td id="fpm-3">—</td><td id="fpm-4">—</td><td class="col-sep"></td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="shift-block">
+        <div class="shift-hdr"><span class="shift-badge" style="background:#f0fdf4;color:#166534">OTP</span><span class="shift-route-text">On-time performance — enter late arrivals per week</span></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th style="width:160px">Metric</th><th style="width:120px">Value</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr>
+                <td style="font-weight:600">Late arrivals this week</td>
+                <td><input class="w70" type="number" min="0" id="otp-late" placeholder="0" style="font-family:'DM Mono',monospace;background:#f5f5f3;border:1px solid rgba(0,0,0,0.15);border-radius:6px;padding:5px 6px;font-size:13px;text-align:center"/></td>
+                <td style="font-size:12px;color:#6b6b63">Days the driver arrived late this week</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">Days of service this week</td>
+                <td><input class="w70" type="number" min="0" max="5" id="otp-days" placeholder="5" style="font-family:'DM Mono',monospace;background:#f5f5f3;border:1px solid rgba(0,0,0,0.15);border-radius:6px;padding:5px 6px;font-size:13px;text-align:center"/></td>
+                <td style="font-size:12px;color:#6b6b63">Default 5 — reduce if service ran fewer days</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr><td>OTP this week</td><td id="foot-otp">—</td><td style="font-size:12px;color:#6b6b63">On-time days ÷ days of service</td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      <div class="shift-block">
+        <div class="shift-hdr"><span class="shift-badge" style="background:#eff6ff;color:#1e3a8a">Schedule</span><span class="shift-route-text">AM — departure times per day</span></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th style="width:50px">Day</th><th>Dep 1</th><th>Dep 2</th><th>Dep 3</th><th>Dep 4</th><th>Dep 5</th></tr></thead>
+            <tbody id="sch-am-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="shift-block">
+        <div class="shift-hdr"><span class="shift-badge" style="background:#fef3c7;color:#78350f">Schedule</span><span class="shift-route-text">PM — departure times per day</span></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th style="width:50px">Day</th><th>Dep 1</th><th>Dep 2</th><th>Dep 3</th><th>Dep 4</th><th>Dep 5</th></tr></thead>
+            <tbody id="sch-pm-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CLIENT -->
+<div class="page" id="page-client">
+  <div class="client-page">
+    <div class="client-hdr">
+      <div><h1>Shuttle Ridership</h1><p>Hayward, CA &nbsp;·&nbsp; Monday – Friday</p></div>
+      <button class="back-btn" onclick="closeClient()" id="back-btn" style="display:none">← Admin</button>
+    </div>
+    <div class="client-wnav" style="display:flex;gap:8px;align-items:center">
+      <select class="week-select" id="client-month-select" onchange="onClientMonthChange(this.value)" style="min-width:130px"></select>
+      <select class="week-select" id="client-week-select" onchange="onClientWeekChange(this.value)" style="min-width:160px"></select>
+    </div>
+    <div class="client-main">
+      <div id="client-loading" class="loading-overlay">Loading latest data…</div>
+      <div id="client-body" style="display:none">
+        <div class="sum-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="sum-card"><div class="sum-lbl">Total riders</div><div class="sum-val" id="c-grand">—</div><div class="sum-sub" id="c-grand-sub">Avg per day: —</div></div>
+          <div class="sum-card"><div class="sum-lbl">AM total</div><div class="sum-val" id="c-am">—</div><div class="sum-sub" id="c-am-sub">Avg per day: —</div></div>
+          <div class="sum-card"><div class="sum-lbl">PM total</div><div class="sum-val" id="c-pm">—</div><div class="sum-sub" id="c-pm-sub">Avg per day: —</div></div>
+          <div class="sum-card"><div class="sum-lbl">OTP</div><div class="sum-val" id="c-otp">—</div><div class="sum-sub" id="c-otp-sub">On-time performance</div></div>
+        </div>
+        <div class="shift-card">
+          <div class="sc-hdr">
+            <div><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span class="shift-badge am">AM Shift</span><span style="font-size:13px;font-weight:600">5:15 – 6:30 AM</span></div><div class="sub">Bay Center Place → Clawiter Rd · continuous</div></div>
+            <div class="sc-total"><div class="num" id="c-am-wk">—</div><div class="lbl">riders this week</div></div>
+          </div>
+          <div id="client-am-rows"></div>
+        </div>
+        <div class="shift-card">
+          <div class="sc-hdr">
+            <div><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span class="shift-badge pm">PM Shift</span><span style="font-size:13px;font-weight:600">2:35 – 3:35 PM</span></div><div class="sub">Clawiter Rd → Bay Center Place · continuous</div></div>
+            <div class="sc-total"><div class="num" id="c-pm-wk">—</div><div class="lbl">riders this week</div></div>
+          </div>
+          <div id="client-pm-rows"></div>
+        </div>
+        <div class="chart-sec">
+          <h3>Ridership by day</h3>
+          <div class="legend"><span><i style="background:#1d4ed8"></i>AM shift</span><span><i style="background:#b45309"></i>PM shift</span></div>
+          <div style="position:relative;height:230px"><canvas id="clientChart" role="img" aria-label="AM and PM ridership by day">Daily ridership.</canvas></div>
+        </div>
+
+        <div style="margin-top:28px">
+          <h3 style="font-size:14px;font-weight:600;margin-bottom:16px">Departure schedule</h3>
+          <div id="client-schedule"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BIN_ID='69d8126baaba882197e04363';
+const API_KEY='$2a$10$ofg8mTcOCOuNWK4Avpgvke1GoBBr2a3Z5zAbVYntVdeyGhID3Y8yu';
+const BIN_URL=`https://api.jsonbin.io/v3/b/${BIN_ID}`;
+const DAYS=['Mon','Tue','Wed','Thu','Fri'];
+const MAX=5;
+
+function getMon(d){const dt=new Date(d),day=dt.getDay();dt.setDate(dt.getDate()-(day===0?6:day-1));return dt.toISOString().slice(0,10)}
+function wkLabel(iso){const d=new Date(iso+'T12:00:00'),fri=new Date(d);fri.setDate(d.getDate()+4);const f=x=>x.toLocaleDateString('en-US',{month:'short',day:'numeric'});return `${f(d)} – ${f(fri)}`}
+function blank(){return{am:DAYS.map(()=>({total:null,deps:[]})),pm:DAYS.map(()=>({total:null,deps:[]}))}}
+function isDynamic(wk){// June 2026 onwards = dynamic departures
+  return wk>='2026-06-01';
+}
+
+const todayMon=getMon(new Date());
+let all={},cur=todayMon,clientChart=null,isAdmin=window.location.hash.includes('admin');
+function sorted(){
+  if(all.__order && Array.isArray(all.__order)){
+    const known=all.__order.filter(k=>all[k]&&k!=='__order');
+    const rest=Object.keys(all).filter(k=>k!=='__order'&&!known.includes(k)&&isValidIso(k)).sort();
+    return [...known,...rest];
+  }
+  return Object.keys(all).filter(k=>k!=='__order'&&isValidIso(k)).sort();
+}
+function saveOrder(){all.__order=sorted();}
+
+async function loadFromCloud(){
+  try{
+    const res=await fetch(BIN_URL+'/latest',{headers:{'X-Master-Key':API_KEY}});
+    const json=await res.json();
+    const data=json.record||{};
+    all=(typeof data==='object'&&!Array.isArray(data)&&Object.keys(data).length>0)?data:{};
+    if(!all[todayMon])all[todayMon]=blank();
+    return true;
+  }catch(e){if(!all[todayMon])all[todayMon]=blank();return false;}
+}
+
+async function saveToCloud(){
+  const btn=document.getElementById('save-btn');
+  const st=document.getElementById('sync-status');
+  btn.disabled=true;btn.textContent='Saving…';
+  st.className='sync-status sync-ing';st.textContent='Syncing…';
+  try{
+    const res=await fetch(BIN_URL,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':API_KEY},body:JSON.stringify(all)});
+    if(res.ok){st.className='sync-status sync-ok';st.textContent='Saved — client view updated';setTimeout(()=>st.textContent='',3000);}
+    else throw new Error();
+  }catch(e){st.className='sync-status sync-err';st.textContent='Save failed — check connection';}
+  btn.disabled=false;btn.textContent='Save & sync';
+}
+
+function getMonthLabel(iso){
+  const d=new Date(iso+'T12:00:00');
+  return d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+}
+function getMonthKey(iso){return iso.slice(0,7);}
+
+function buildSidebarWeeks(){
+  const weeks=sorted().filter(isValidIso);
+  // Build month selector
+  const monthSel=document.getElementById('nav-month');
+  if(!monthSel)return;
+  const months=[...new Set(weeks.map(getMonthKey))];
+  const curMonth=getMonthKey(cur);
+  // Only rebuild month options if they changed
+  const existingMonths=[...monthSel.options].map(o=>o.value);
+  if(JSON.stringify(existingMonths)!==JSON.stringify(months)){
+    monthSel.innerHTML='';
+    months.forEach(m=>{
+      const opt=document.createElement('option');
+      opt.value=m;
+      const d=new Date(m+'-01T12:00:00');
+      opt.textContent=d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+      opt.selected=(m===curMonth);
+      monthSel.appendChild(opt);
+    });
+  } else {
+    monthSel.value=curMonth;
+  }
+  // Build week selector for current month
+  buildNavWeekOptions(curMonth);
+  // Update move buttons
+  const idx=weeks.indexOf(cur);
+  const upBtn=document.getElementById('nav-up');
+  const dnBtn=document.getElementById('nav-dn');
+  if(upBtn)upBtn.style.opacity=idx<=0?'0.2':'0.6';
+  if(dnBtn)dnBtn.style.opacity=idx>=weeks.length-1?'0.2':'0.6';
+}
+
+function buildNavWeekOptions(monthKey){
+  const weeks=sorted().filter(isValidIso).filter(wk=>getMonthKey(wk)===monthKey);
+  const weekSel=document.getElementById('nav-week');
+  if(!weekSel)return;
+  weekSel.innerHTML='';
+  if(weeks.length===0){
+    const opt=document.createElement('option');
+    opt.textContent='No weeks in this month';
+    weekSel.appendChild(opt);
+    return;
+  }
+  weeks.forEach(wk=>{
+    const opt=document.createElement('option');
+    opt.value=wk;
+    opt.textContent=wk===todayMon?'This week ('+wkLabel(wk)+')':wkLabel(wk);
+    opt.selected=(wk===cur);
+    weekSel.appendChild(opt);
+  });
+}
+
+function onNavMonthChange(){
+  const monthSel=document.getElementById('nav-month');
+  if(!monthSel)return;
+  const m=monthSel.value;
+  buildNavWeekOptions(m);
+  // Switch to first week of that month
+  const weeks=sorted().filter(isValidIso).filter(wk=>getMonthKey(wk)===m);
+  if(weeks.length>0&&!weeks.includes(cur)){
+    cur=weeks[0];
+    buildNavWeekOptions(m);
+    buildClientNav();buildTables();updateFooters();updateWkLabel();
+  }
+}
+
+function onNavWeekChange(wk){
+  if(!wk||!all[wk])return;
+  cur=wk;
+  buildSidebarWeeks();buildClientNav();buildTables();updateFooters();updateWkLabel();
+}
+
+function moveWeek(wk, dir){
+  const weeks=sorted().filter(isValidIso);
+  const idx=weeks.indexOf(wk);
+  const newIdx=idx+dir;
+  if(newIdx<0||newIdx>=weeks.length)return;
+  weeks.splice(idx,1);
+  weeks.splice(newIdx,0,wk);
+  all.__order=weeks;
+  buildSidebarWeeks();buildClientNav();
+}
+
+function isValidIso(iso){const d=new Date(iso+'T12:00:00');return !isNaN(d.getTime());}
+
+function buildClientNav(){
+  // Client view: month select + week select
+  let mSel=document.getElementById('client-month-select');
+  const wSel=document.getElementById('client-week-select');
+  if(!wSel)return;
+  const weeks=sorted().filter(isValidIso);
+  const months=[...new Set(weeks.map(getMonthKey))];
+  const curMonth=getMonthKey(cur);
+  // Build month select if it exists
+  if(mSel){
+    const existing=[...mSel.options].map(o=>o.value);
+    if(JSON.stringify(existing)!==JSON.stringify(months)){
+      mSel.innerHTML='';
+      months.forEach(m=>{
+        const opt=document.createElement('option');
+        opt.value=m;
+        const d=new Date(m+'-01T12:00:00');
+        opt.textContent=d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+        opt.selected=(m===curMonth);
+        mSel.appendChild(opt);
+      });
+    } else {
+      mSel.value=curMonth;
+    }
+  }
+  // Week select — filter by current month
+  const filtered=weeks.filter(wk=>getMonthKey(wk)===curMonth);
+  wSel.innerHTML='';
+  filtered.forEach(wk=>{
+    const opt=document.createElement('option');
+    opt.value=wk;
+    opt.textContent=wk===todayMon?'This week ('+wkLabel(wk)+')':wkLabel(wk);
+    opt.selected=(wk===cur);
+    wSel.appendChild(opt);
+  });
+  if(filtered.length===0){
+    weeks.forEach(wk=>{
+      const opt=document.createElement('option');
+      opt.value=wk;
+      opt.textContent=wk===todayMon?'This week':wkLabel(wk);
+      opt.selected=(wk===cur);
+      wSel.appendChild(opt);
+    });
+  }
+}
+
+function onClientWeekChange(wk){
+  cur=wk;
+  buildSidebarWeeks();
+  buildClientNav();
+  if(isAdmin){buildTables();updateFooters();updateWkLabel();}
+  else{populateClientView();}
+}
+
+function onClientMonthChange(m){
+  const weeks=sorted().filter(isValidIso).filter(wk=>getMonthKey(wk)===m);
+  if(weeks.length>0){
+    cur=weeks[0];
+    buildSidebarWeeks();
+    buildClientNav();
+    if(isAdmin){buildTables();updateFooters();updateWkLabel();}
+    else{populateClientView();}
+  }
+}
+
+function populateMonthSelect(){
+  const sel=document.getElementById('new-week-month');
+  if(!sel)return;
+  sel.innerHTML='';
+  const now=new Date();
+  for(let i=-3;i<=6;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()+i,1);
+    const opt=document.createElement('option');
+    opt.value=d.getFullYear()+'-'+(d.getMonth()+1);
+    opt.textContent=d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    if(i===0)opt.selected=true;
+    sel.appendChild(opt);
+  }
+  updateWeekOptions();
+}
+
+function updateWeekOptions(){
+  const msel=document.getElementById('new-week-month');
+  const wsel=document.getElementById('new-week-select');
+  if(!msel||!wsel)return;
+  const[year,month]=msel.value.split('-').map(Number);
+  wsel.innerHTML='';
+  const d=new Date(year,month-1,1);
+  while(d.getDay()!==1)d.setDate(d.getDate()+1);
+  const endLimit=new Date(year,month,7);
+  while(d<=endLimit){
+    const iso=d.toISOString().slice(0,10);
+    const fri=new Date(d);fri.setDate(d.getDate()+4);
+    const f=x=>x.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const opt=document.createElement('option');
+    opt.value=iso;
+    opt.textContent=`${f(d)} – ${f(fri)}${all[iso]?' ✓':''}`;
+    wsel.appendChild(opt);
+    d.setDate(d.getDate()+7);
+  }
+}
+
+function addSelectedWeek(){
+  const wsel=document.getElementById('new-week-select');
+  if(!wsel||!wsel.value)return;
+  const nk=wsel.value;
+  const msg=document.getElementById('week-msg');
+  if(all[nk]){
+    cur=nk;
+    msg.textContent='Switched to existing week.';
+  } else {
+    all[nk]=blank();
+    cur=nk;
+    msg.textContent='Week added!';
+  }
+  setTimeout(()=>{msg.textContent='';updateWeekOptions();},2000);
+  saveOrder();buildSidebarWeeks();buildClientNav();buildTables();updateFooters();updateWkLabel();
+}
+
+function deleteCurrentWeek(){
+  const weeks=sorted().filter(isValidIso);
+  if(weeks.length<=1){
+    const msg=document.getElementById('week-msg');
+    msg.textContent='Cannot delete the only week.';
+    setTimeout(()=>msg.textContent='',2500);
+    return;
+  }
+  if(!confirm('Delete week '+wkLabel(cur)+'?'))return;
+  delete all[cur];
+  const remaining=sorted().filter(isValidIso);
+  cur=remaining.includes(todayMon)?todayMon:remaining[remaining.length-1];
+  saveOrder();buildSidebarWeeks();buildClientNav();buildTables();updateFooters();updateWkLabel();
+}
+
+function updateWkLabel(){document.getElementById('admin-week-label').textContent=cur===todayMon?'This week':wkLabel(cur);}
+
+function buildTables(){buildShift('am','am-tbody');buildShift('pm','pm-tbody');buildOtp();buildSchedule();}
+
+function buildOtp(){
+  const wk=all[cur];
+  if(!wk.otp)wk.otp={late:null,days:null};
+  const lateEl=document.getElementById('otp-late');
+  const daysEl=document.getElementById('otp-days');
+  if(lateEl)lateEl.value=wk.otp.late!=null?wk.otp.late:'';
+  if(daysEl)daysEl.value=wk.otp.days!=null?wk.otp.days:'';
+  updateOtpFooter();
+  if(lateEl)lateEl.oninput=e=>{wk.otp.late=e.target.value!==''?parseInt(e.target.value):null;updateOtpFooter();};
+  if(daysEl)daysEl.oninput=e=>{wk.otp.days=e.target.value!==''?parseInt(e.target.value):null;updateOtpFooter();};
+}
+
+function buildSchedule(){
+  const wk=all[cur];
+  const dynamic=isDynamic(cur);
+  // Init schedule structure if missing
+  if(!wk.schedule)wk.schedule={am:DAYS.map(()=>Array(MAX).fill('')),pm:DAYS.map(()=>Array(MAX).fill(''))};
+
+  ['am','pm'].forEach(sh=>{
+    const tbody=document.getElementById(`sch-${sh}-tbody`);
+    if(!tbody)return;
+    // Update header
+    const thead=tbody.closest('table').querySelector('thead tr');
+    if(thead){
+      if(dynamic){
+        // Count max deps across all days for this shift
+        const maxDeps=DAYS.reduce((m,_,di)=>Math.max(m,(wk[sh]&&wk[sh][di]?wk[sh][di].deps.length:0)),0);
+        let depHeaders='';
+        for(let k=0;k<maxDeps;k++) depHeaders+=`<th style="width:62px">Dep ${k+1}</th>`;
+        thead.innerHTML=`<th style="width:52px">Day</th>${depHeaders||'<th></th>'}`;
+      } else {
+        thead.innerHTML='<th style="width:50px">Day</th><th>Dep 1</th><th>Dep 2</th><th>Dep 3</th><th>Dep 4</th><th>Dep 5</th>';
+      }
+    }
+    tbody.innerHTML='';
+    DAYS.forEach((day,di)=>{
+      if(dynamic){
+        // Dynamic: use dep count from ridership row to determine number of schedule slots
+        const depCount=wk[sh]&&wk[sh][di]?wk[sh][di].deps.length:0;
+        // Ensure schedule array matches dep count
+        if(!wk.schedule[sh][di])wk.schedule[sh][di]=[];
+        while(wk.schedule[sh][di].length<depCount)wk.schedule[sh][di].push('');
+        if(wk.schedule[sh][di].length>depCount)wk.schedule[sh][di].length=depCount;
+        const tr=document.createElement('tr');
+        tr.id=`sch-${sh}-row-${di}`;
+        tbody.appendChild(tr);
+        renderSchRow(sh,di,wk);
+      } else {
+        // Fixed 5 departures
+        if(!wk.schedule[sh][di])wk.schedule[sh][di]=Array(MAX).fill('');
+        const tr=document.createElement('tr');
+        let cells='';
+        for(let k=0;k<MAX;k++){
+          cells+=`<td><input type="text" id="sch-${sh}-${di}-${k}" value="${wk.schedule[sh][di][k]||''}" placeholder="—" style="width:64px;font-family:'DM Mono',monospace;background:#f5f5f3;border:1px solid rgba(0,0,0,0.15);border-radius:6px;padding:4px 5px;font-size:12px;text-align:center"/></td>`;
+        }
+        tr.innerHTML=`<td style="font-weight:600;font-size:13px">${day}</td>${cells}`;
+        tbody.appendChild(tr);
+        for(let k=0;k<MAX;k++){
+          document.getElementById(`sch-${sh}-${di}-${k}`).oninput=e=>{wk.schedule[sh][di][k]=e.target.value;};
+        }
+      }
+    });
+  });
+}
+
+function renderSchRow(sh,di,wk){
+  const tr=document.getElementById(`sch-${sh}-row-${di}`);
+  if(!tr)return;
+  const slots=wk.schedule[sh][di]||[];
+  if(slots.length===0){
+    tr.innerHTML=`<td style="font-weight:600;font-size:13px">${DAYS[di]}</td><td style="font-size:12px;color:var(--ink3);padding:8px 10px">Add departures in the ridership table above first</td>`;
+    return;
+  }
+  // Use proper td cells so they align with header columns
+  let cells='';
+  slots.forEach((v,k)=>{
+    cells+=`<td><input type="text" id="sch-${sh}-${di}-${k}" value="${v||''}" placeholder="—" style="width:62px;font-family:'DM Mono',monospace;background:#f5f5f3;border:1px solid rgba(0,0,0,0.15);border-radius:6px;padding:5px 6px;font-size:12px;text-align:center"/></td>`;
+  });
+  tr.innerHTML=`<td style="font-weight:600;font-size:13px">${DAYS[di]}</td>${cells}`;
+  slots.forEach((_,k)=>{
+    const el=document.getElementById(`sch-${sh}-${di}-${k}`);
+    if(el)el.oninput=e=>{wk.schedule[sh][di][k]=e.target.value;};
+  });
+}
+
+function updateOtpFooter(){
+  const wk=all[cur];
+  if(!wk.otp)return;
+  const days=wk.otp.days!=null?wk.otp.days:5;
+  const late=wk.otp.late!=null?wk.otp.late:0;
+  const onTime=days-late;
+  const pct=days>0?Math.round((onTime/days)*100):null;
+  const el=document.getElementById('foot-otp');
+  if(el)el.textContent=pct!==null?`${pct}% (${onTime}/${days} days)`:'—';
+}
+
+function buildShift(sh,tbId){
+  const wk=all[cur],tbody=document.getElementById(tbId);tbody.innerHTML='';
+  const dynamic=isDynamic(cur);
+  // Update table header dynamically
+  const table=tbody.closest('table');
+  if(table){
+    const thead=table.querySelector('thead tr');
+    if(thead){
+      if(dynamic){
+        // Dynamic header: Day | Total | [dep cols added per row] | Unallocated
+        thead.innerHTML='<th style="width:50px">Day</th><th style="width:78px">Shift total</th><th class="col-sep" style="width:62px" id="'+sh+'-dep-header"></th><th class="col-sep" style="width:90px">Unallocated</th>';
+      } else {
+        thead.innerHTML='<th style="width:50px">Day</th><th style="width:78px">Shift total</th><th class="col-sep" style="width:62px">Dep 1</th><th style="width:62px">Dep 2</th><th style="width:62px">Dep 3</th><th style="width:62px">Dep 4</th><th style="width:62px">Dep 5</th><th class="col-sep" style="width:90px">Unallocated</th>';
+      }
+    }
+  }
+  DAYS.forEach((day,di)=>{
+    const row=wk[sh][di];
+    if(dynamic){
+      buildDynamicRow(sh,di,day,tbody,wk);
+    } else {
+      // Legacy fixed 5 departures
+      const tr=document.createElement('tr');
+      let dc='';
+      for(let k=0;k<MAX;k++){const cs=k===0?' class="col-sep"':'';dc+=`<td${cs}><input class="w54" type="number" min="0" id="${sh}-d-${di}-${k}" value="${row.deps[k]!==null?row.deps[k]:''}" placeholder="—"/></td>`;}
+      tr.innerHTML=`<td style="font-weight:600;font-size:13px">${day}</td><td><input class="w70" type="number" min="0" id="${sh}-t-${di}" value="${row.total!==null?row.total:''}" placeholder="—"/></td>${dc}<td class="col-sep"><span class="unalloc" id="${sh}-u-${di}"></span></td>`;
+      tbody.appendChild(tr);
+      document.getElementById(`${sh}-t-${di}`).addEventListener('input',e=>{wk[sh][di].total=e.target.value!==''?parseInt(e.target.value):null;refreshU(sh,di);updateFooters();});
+      for(let k=0;k<MAX;k++){document.getElementById(`${sh}-d-${di}-${k}`).addEventListener('input',e=>{wk[sh][di].deps[k]=e.target.value!==''?parseInt(e.target.value):null;refreshU(sh,di);updateFooters();});}
+      refreshU(sh,di);
+    }
+  });
+}
+
+function buildDynamicRow(sh,di,day,tbody,wk){
+  const row=wk[sh][di];
+  // Wrapper row containing day label, total input, dep cells, add button, unalloc
+  const tr=document.createElement('tr');
+  tr.id=`${sh}-row-${di}`;
+  tbody.appendChild(tr);
+  renderDynamicRow(sh,di,wk);
+}
+
+function renderDynamicRow(sh,di,wk){
+  const row=wk[sh][di];
+  const tr=document.getElementById(`${sh}-row-${di}`);
+  if(!tr)return;
+  let depCells='';
+  row.deps.forEach((v,k)=>{
+    depCells+=`<td class="${k===0?'col-sep':''}"><input class="w54" type="number" min="0" id="${sh}-d-${di}-${k}" value="${v!==null?v:''}" placeholder="—"/></td>`;
+  });
+  // Add departure button
+  depCells+=`<td><button type="button" onclick="addDep('${sh}',${di})" style="font-size:11px;padding:3px 7px;border-radius:4px;border:1px dashed rgba(0,0,0,0.2);background:transparent;color:var(--ink2);cursor:pointer;white-space:nowrap">+ Dep</button>`;
+  if(row.deps.length>0){
+    depCells+=`<button type="button" onclick="removeDep('${sh}',${di})" style="font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid rgba(220,38,38,.3);background:transparent;color:var(--red);cursor:pointer;margin-left:4px">−</button>`;
+  }
+  depCells+='</td>';
+  tr.innerHTML=`<td style="font-weight:600;font-size:13px">${DAYS[di]}</td><td><input class="w70" type="number" min="0" id="${sh}-t-${di}" value="${row.total!==null?row.total:''}" placeholder="—"/></td>${depCells}<td class="col-sep"><span class="unalloc" id="${sh}-u-${di}"></span></td>`;
+  // Attach listeners
+  document.getElementById(`${sh}-t-${di}`).addEventListener('input',e=>{wk[sh][di].total=e.target.value!==''?parseInt(e.target.value):null;refreshU(sh,di);updateFooters();});
+  row.deps.forEach((_,k)=>{
+    const el=document.getElementById(`${sh}-d-${di}-${k}`);
+    if(el)el.addEventListener('input',e=>{wk[sh][di].deps[k]=e.target.value!==''?parseInt(e.target.value):null;refreshU(sh,di);updateFooters();});
+  });
+  refreshU(sh,di);
+}
+
+function addDep(sh,di){
+  all[cur][sh][di].deps.push(null);
+  // Keep schedule in sync
+  if(!all[cur].schedule)all[cur].schedule={am:DAYS.map(()=>[]),pm:DAYS.map(()=>[])};
+  if(!all[cur].schedule[sh][di])all[cur].schedule[sh][di]=[];
+  all[cur].schedule[sh][di].push('');
+  renderDynamicRow(sh,di,all[cur]);
+  renderSchRow(sh,di,all[cur]);
+  updateFooters();
+}
+
+function removeDep(sh,di){
+  const deps=all[cur][sh][di].deps;
+  if(deps.length===0)return;
+  deps.pop();
+  // Keep schedule in sync
+  if(all[cur].schedule&&all[cur].schedule[sh]&&all[cur].schedule[sh][di]){
+    all[cur].schedule[sh][di].pop();
+  }
+  renderDynamicRow(sh,di,all[cur]);
+  renderSchRow(sh,di,all[cur]);
+  refreshU(sh,di);
+  updateFooters();
+}
+
+function refreshU(sh,di){
+  const row=all[cur][sh][di],depSum=row.deps.filter(v=>v!==null).reduce((a,b)=>a+b,0),u=row.total!==null?row.total-depSum:null;
+  const el=document.getElementById(`${sh}-u-${di}`);if(!el)return;
+  if(u===null){el.className='unalloc u-empty';el.textContent='—';}
+  else if(u===0){el.className='unalloc u-ok';el.textContent='✓ balanced';}
+  else if(u>0){el.className='unalloc u-under';el.textContent=`${u} left`;}
+  else{el.className='unalloc u-over';el.textContent=`${Math.abs(u)} over`;}
+}
+
+function updateFooters(){
+  ['am','pm'].forEach(sh=>{
+    const pf=sh==='am'?'fam':'fpm',wk=all[cur];
+    const shT=DAYS.reduce((s,_,di)=>s+(wk[sh][di].total||0),0);
+    document.getElementById(`${pf}-t`).textContent=shT>0?shT:'—';
+    if(!isDynamic(cur)){
+      for(let k=0;k<MAX;k++){const el=document.getElementById(`${pf}-${k}`);if(el){const cT=DAYS.reduce((s,_,di)=>s+(wk[sh][di].deps[k]||0),0);el.textContent=cT>0?cT:'—';}}
+    }
+  });
+}
+
+function openClient(){isAdmin=false;document.getElementById('page-admin').classList.remove('active');document.getElementById('page-client').classList.add('active');document.getElementById('back-btn').style.display='block';renderClientFull();} 
+function closeClient(){isAdmin=true;document.getElementById('page-client').classList.remove('active');document.getElementById('page-admin').classList.add('active');buildTables();updateFooters();updateWkLabel();}
+
+async function renderClientFull(){
+  document.getElementById('client-loading').style.display='flex';
+  document.getElementById('client-body').style.display='none';
+  buildClientNav();
+  populateClientView();
+  document.getElementById('client-loading').style.display='none';
+  document.getElementById('client-body').style.display='block';
+}
+
+function renderSchedule(){
+  const wk=all[cur];
+  const container=document.getElementById('client-schedule');
+  if(!container)return;
+  const sch=wk.schedule||{am:DAYS.map(()=>Array(MAX).fill('')),pm:DAYS.map(()=>Array(MAX).fill(''))};
+  const shifts=[
+    {sh:'am',label:'AM Shift',bg:'#dbeafe',textc:'#1e3a8a',time:'5:15 – 6:30 AM'},
+    {sh:'pm',label:'PM Shift',bg:'#fef3c7',textc:'#78350f',time:'2:35 – 3:35 PM'}
+  ];
+  let html='';
+  shifts.forEach(r=>{
+    const days=sch[r.sh]||DAYS.map(()=>Array(MAX).fill(''));
+    const hasAny=days.some(row=>row.some(v=>v&&v.trim()!==''));
+    if(!hasAny)return;
+    html+=`<div style="background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:10px;margin-bottom:16px;overflow:hidden">
+      <div style="padding:12px 18px;border-bottom:1px solid rgba(0,0,0,0.07);display:flex;align-items:center;gap:10px;background:#fafaf8">
+        <span style="background:${r.bg};color:${r.textc};font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;letter-spacing:.05em">${r.label}</span>
+        <span style="font-size:12px;color:#6b6b63">${r.time}</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#fafaf8">
+          <th style="text-align:left;padding:8px 14px;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#999990;border-bottom:1px solid rgba(0,0,0,0.07);width:52px">Day</th>
+          ${Array.from({length:MAX},(_,k)=>`<th style="text-align:center;padding:8px 10px;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#999990;border-bottom:1px solid rgba(0,0,0,0.07)">Dep ${k+1}</th>`).join('')}
+        </tr></thead>
+        <tbody>
+          ${DAYS.map((day,di)=>{
+            const row=days[di]||Array(MAX).fill('');
+            const hasDay=row.some(v=>v&&v.trim()!=='');
+            if(!hasDay)return '';
+            return `<tr style="border-bottom:1px solid rgba(0,0,0,0.06)">
+              <td style="padding:10px 14px;font-weight:600;font-size:13px">${day}</td>
+              ${row.map((t,k)=>`<td style="padding:10px;text-align:center;font-family:'DM Mono',monospace;font-size:13px;color:${t&&t.trim()!==''?'#111110':'#ccc'}">${t&&t.trim()!==''?t:'—'}</td>`).join('')}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  });
+  container.innerHTML=html||'<p style="font-size:13px;color:#999990;padding:16px 0">No schedule entered for this week yet.</p>';
+}
+
+function populateClientView(){
+  const wk=all[cur];
+  const amT=DAYS.reduce((s,_,di)=>s+(wk.am[di].total||0),0);
+  const pmT=DAYS.reduce((s,_,di)=>s+(wk.pm[di].total||0),0);
+  const grand=amT+pmT;
+  const daysOfService=wk.otp&&wk.otp.days!=null?wk.otp.days:5;
+  const amAvg=daysOfService>0?Math.round(amT/daysOfService):null;
+  const pmAvg=daysOfService>0?Math.round(pmT/daysOfService):null;
+  const grandAvg=daysOfService>0?Math.round(grand/daysOfService):null;
+  document.getElementById('c-grand').textContent=grand>0?grand:'—';
+  document.getElementById('c-am').textContent=amT>0?amT:'—';
+  document.getElementById('c-pm').textContent=pmT>0?pmT:'—';
+  document.getElementById('c-grand-sub').textContent=grandAvg!==null?`Avg per day: ${grandAvg}`:'Avg per day: —';
+  document.getElementById('c-am-sub').textContent=amAvg!==null?`Avg per day: ${amAvg}`:'Avg per day: —';
+  document.getElementById('c-pm-sub').textContent=pmAvg!==null?`Avg per day: ${pmAvg}`:'Avg per day: —';
+  document.getElementById('c-am-wk').textContent=amT>0?amT:'—';
+  document.getElementById('c-pm-wk').textContent=pmT>0?pmT:'—';
+  // OTP — per week, only if late arrivals were explicitly entered
+  const otpData=wk.otp;
+  if(otpData&&otpData.late!=null){
+    const days=otpData.days!=null?otpData.days:5;
+    const late=otpData.late;
+    const onTime=days-late;
+    const pct=days>0?Math.round((onTime/days)*100):0;
+    document.getElementById('c-otp').textContent=pct+'%';
+    document.getElementById('c-otp-sub').textContent=`${onTime}/${days} days on time`;
+  } else {
+    document.getElementById('c-otp').textContent='—';
+    document.getElementById('c-otp-sub').textContent='On-time performance';
+  }
+  renderClientDays('am','client-am-rows');
+  renderClientDays('pm','client-pm-rows');
+  renderSchedule();
+  const amD=DAYS.map((_,di)=>wk.am[di].total||0),pmD=DAYS.map((_,di)=>wk.pm[di].total||0);
+  if(clientChart){clientChart.data.datasets[0].data=amD;clientChart.data.datasets[1].data=pmD;clientChart.update();}
+  else{clientChart=new Chart(document.getElementById('clientChart'),{type:'bar',data:{labels:DAYS,datasets:[{label:'AM',data:amD,backgroundColor:'#1d4ed8',borderRadius:5,borderSkipped:false},{label:'PM',data:pmD,backgroundColor:'#b45309',borderRadius:5,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#999990',font:{size:12,family:'Syne'}}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{color:'#999990',font:{size:12,family:'DM Mono'},stepSize:1},beginAtZero:true}}}});}
+}
+
+function renderClientDays(sh,cId){
+  const wk=all[cur],container=document.getElementById(cId);container.innerHTML='';
+  let hasAny=false;
+  DAYS.forEach((day,di)=>{
+    const row=wk[sh][di];
+    if(row.total===null&&row.deps.every(v=>v===null))return;
+    hasAny=true;
+    const bodyId=`cb-${sh}-${di}`,hasDeps=row.deps.some(v=>v!==null),div=document.createElement('div');
+    div.className='day-row';
+    const depCount=row.deps.filter(v=>v!==null).length;
+    const gridCols=depCount>5?`repeat(${depCount},1fr)`:'repeat(5,1fr)';
+    div.innerHTML=`<div class="day-row-hdr" onclick="toggleDay('${bodyId}')"><span class="day-row-name">${day}</span><div style="display:flex;align-items:center;gap:10px"><span class="day-row-total">${row.total!==null?row.total+' riders':'—'}</span><span class="chevron" id="chev-${bodyId}">▾</span></div></div><div class="day-body" id="${bodyId}"><div class="dep-grid" style="grid-template-columns:${gridCols}">${row.deps.map((v,k)=>`<div class="dep-cell"><div class="dep-num">${v!==null?v:'—'}</div><div class="dep-lbl">Dep ${k+1}</div></div>`).join('')}</div></div>`;
+    container.appendChild(div);
+  });
+  if(!hasAny)container.innerHTML='<div class="no-data">No data entered for this week yet.</div>';
+}
+
+function toggleDay(id){const el=document.getElementById(id),chev=document.getElementById('chev-'+id);if(el)el.classList.toggle('open');if(chev)chev.classList.toggle('open');}
+
+document.getElementById('save-btn').addEventListener('click',saveToCloud);
+
+const ADMIN_PIN='1997';
+
+function showPinPrompt(){
+  const overlay=document.createElement('div');
+  overlay.id='pin-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:var(--ink);display:flex;align-items:center;justify-content:center;z-index:999';
+  overlay.innerHTML=`
+    <div style="background:var(--card);border-radius:12px;padding:36px 40px;text-align:center;max-width:320px;width:90%">
+      <div style="font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Admin Access</div>
+      <div style="font-size:20px;font-weight:600;margin-bottom:24px">Enter PIN</div>
+      <input type="password" id="pin-input" inputmode="numeric" maxlength="10"
+        style="font-family:'DM Mono',monospace;font-size:24px;letter-spacing:.2em;text-align:center;width:100%;padding:12px;border:1px solid var(--line2);border-radius:8px;background:var(--paper);color:var(--ink);margin-bottom:12px"
+        placeholder="••••" autofocus/>
+      <div id="pin-error" style="font-size:12px;color:var(--red);height:18px;margin-bottom:12px"></div>
+      <button onclick="checkPin()" style="font-family:'Syne',sans-serif;font-size:13px;font-weight:600;width:100%;padding:12px;border-radius:8px;border:none;background:var(--ink);color:#fff;cursor:pointer">Enter</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('pin-input').addEventListener('keydown',e=>{if(e.key==='Enter')checkPin();});
+}
+
+function checkPin(){
+  const val=document.getElementById('pin-input').value;
+  if(val===ADMIN_PIN){
+    sessionStorage.setItem('shuttle_auth','1');
+    document.getElementById('pin-overlay').remove();
+    loadAdmin();
+  } else {
+    const err=document.getElementById('pin-error');
+    err.textContent='Incorrect PIN. Try again.';
+    document.getElementById('pin-input').value='';
+    document.getElementById('pin-input').focus();
+  }
+}
+
+async function loadAdmin(){
+  await loadFromCloud();
+  buildClientNav();
+  document.getElementById('page-admin').classList.add('active');
+  document.getElementById('page-client').classList.remove('active');
+  buildSidebarWeeks();buildTables();updateFooters();updateWkLabel();
+  populateMonthSelect();
+}
+
+async function init(){
+  const isAdminRoute=window.location.hash.includes('admin');
+  isAdmin=isAdminRoute;
+  if(isAdminRoute){
+    const authed=sessionStorage.getItem('shuttle_auth')==='1';
+    if(authed){loadAdmin();}
+    else{showPinPrompt();}
+  } else {
+    // Show client page immediately — no flash of admin sidebar
+    document.getElementById('page-client').classList.add('active');
+    document.getElementById('back-btn').style.display='none';
+    document.getElementById('client-loading').style.display='flex';
+    document.getElementById('client-body').style.display='none';
+    await loadFromCloud();
+    buildClientNav();
+    document.getElementById('client-loading').style.display='none';
+    document.getElementById('client-body').style.display='block';
+    populateClientView();
+  }
+}
+init();
+
+function exportData(){
+  const dataStr=JSON.stringify(all,null,2);
+  const blob=new Blob([dataStr],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  const date=new Date().toISOString().slice(0,10);
+  a.download=`shuttle_data_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+
+
+<!-- REPORT MODAL -->
+<div class="modal-overlay" id="report-modal">
+  <div class="modal-box">
+    <h3>Generate Report</h3>
+    <p>Choose the date range for the analysis report.</p>
+    <div class="modal-row">
+      <label>From week</label>
+      <select id="report-from"></select>
+    </div>
+    <div class="modal-row">
+      <label>To week</label>
+      <select id="report-to"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn-secondary" type="button" onclick="closeReportModal()">Cancel</button>
+      <button class="modal-btn-primary" type="button" id="report-gen-btn" onclick="generateReport()">Download PPTX</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openReportModal(){
+  const weeks=sorted().filter(isValidIso);
+  ['report-from','report-to'].forEach((id,idx)=>{
+    const sel=document.getElementById(id);
+    sel.innerHTML='';
+    weeks.forEach((wk,i)=>{
+      const opt=document.createElement('option');
+      opt.value=wk;
+      opt.textContent=wk===todayMon?'This week':wkLabel(wk);
+      if(idx===0&&i===0)opt.selected=true;
+      if(idx===1&&i===weeks.length-1)opt.selected=true;
+      sel.appendChild(opt);
+    });
+  });
+  document.getElementById('report-modal').classList.add('open');
+}
+function closeReportModal(){document.getElementById('report-modal').classList.remove('open');}
+
+async function generateReport(){
+  const btn=document.getElementById('report-gen-btn');
+  btn.textContent='Generating…';btn.disabled=true;
+
+  const fromWk=document.getElementById('report-from').value;
+  const toWk=document.getElementById('report-to').value;
+  const allWks=sorted().filter(isValidIso);
+  const fromIdx=allWks.indexOf(fromWk),toIdx=allWks.indexOf(toWk);
+  const weeks=allWks.slice(Math.min(fromIdx,toIdx),Math.max(fromIdx,toIdx)+1);
+
+  const DAYS_NAMES=['Mon','Tue','Wed','Thu','Fri'];
+  const MAX=5;
+  const C={dark:'111110',mid:'555550',faint:'999990',white:'FFFFFF',
+    am:'1D4ED8',amLight:'DBEAFE',pm:'B45309',pmLight:'FEF3DC',
+    bg:'F7F6F2',card:'FFFFFF',green:'15803D',red:'DC2626'};
+
+  const pres=new PptxGenJS();
+  pres.layout='LAYOUT_16x9';
+  pres.title='Shuttle Ridership Analysis';
+
+  // ── COMPUTE ALL ANALYTICS ──
+  const weeklyData=weeks.map(wk=>{
+    const w=all[wk];
+    const amByDay=DAYS_NAMES.map((_,di)=>w.am[di].total||0);
+    const pmByDay=DAYS_NAMES.map((_,di)=>w.pm[di].total||0);
+    const amT=amByDay.reduce((a,b)=>a+b,0);
+    const pmT=pmByDay.reduce((a,b)=>a+b,0);
+    const otp=w.otp&&w.otp.late!=null?Math.round(((( w.otp.days||5)-w.otp.late)/(w.otp.days||5))*100):null;
+    return{wk,amT,pmT,total:amT+pmT,amByDay,pmByDay,otp};
+  });
+
+  const grandTotal=weeklyData.reduce((s,w)=>s+w.total,0);
+  const grandAM=weeklyData.reduce((s,w)=>s+w.amT,0);
+  const grandPM=weeklyData.reduce((s,w)=>s+w.pmT,0);
+  const serviceDays=weeks.length*5;
+  const avgPerDay=serviceDays>0?Math.round(grandTotal/serviceDays):0;
+  const avgPerWeek=weeks.length>0?Math.round(grandTotal/weeks.length):0;
+  const avgAMPerDay=serviceDays>0?Math.round(grandAM/serviceDays):0;
+  const avgPMPerDay=serviceDays>0?Math.round(grandPM/serviceDays):0;
+
+  // Day of week analysis
+  const dayTotals=DAYS_NAMES.map((_,di)=>weeklyData.reduce((s,w)=>s+(w.amByDay[di]||0)+(w.pmByDay[di]||0),0));
+  const dayAvgs=dayTotals.map(t=>weeks.length>0?Math.round(t/weeks.length):0);
+  const busiestDayIdx=dayAvgs.indexOf(Math.max(...dayAvgs));
+  const quietestDayIdx=dayAvgs.indexOf(Math.min(...dayAvgs));
+
+  // AM vs PM split
+  const amPct=grandTotal>0?Math.round((grandAM/grandTotal)*100):0;
+  const pmPct=100-amPct;
+
+  // Weekly trend — growth
+  const firstWkTotal=weeklyData.length>0?weeklyData[0].total:0;
+  const lastWkTotal=weeklyData.length>0?weeklyData[weeklyData.length-1].total:0;
+  const growth=firstWkTotal>0?Math.round(((lastWkTotal-firstWkTotal)/firstWkTotal)*100):0;
+
+  // OTP
+  let totalOtpDays=0,totalLate=0,hasOtp=false;
+  weeks.forEach(wk=>{const w=all[wk];if(w.otp&&w.otp.late!=null){totalOtpDays+=(w.otp.days||5);totalLate+=w.otp.late;hasOtp=true;}});
+  const overallOtp=hasOtp&&totalOtpDays>0?Math.round(((totalOtpDays-totalLate)/totalOtpDays)*100):null;
+
+  // Peak week
+  const peakWk=weeklyData.reduce((a,b)=>b.total>a.total?b:a,weeklyData[0]);
+
+  const rangeLabel=weeks.length===1?(weeks[0]===todayMon?'This week':wkLabel(weeks[0])):`${wkLabel(weeks[0])} — ${wkLabel(weeks[weeks.length-1])}`;
+
+  // ── HELPERS ──
+  function addCard(slide,x,y,w,h,label,val,sub,valColor){
+    valColor=valColor||C.dark;
+    slide.addShape(pres.shapes.RECTANGLE,{x,y,w,h,fill:{color:C.card},line:{color:'E5E5E0',pt:1}});
+    slide.addText(label,{x:x+0.15,y:y+0.12,w:w-0.3,h:0.25,fontSize:9,fontFace:'Calibri',color:C.faint,bold:true,charSpacing:2,margin:0});
+    slide.addText(String(val),{x:x+0.12,y:y+0.38,w:w-0.24,h:0.65,fontSize:32,fontFace:'Calibri',color:valColor,bold:false,margin:0});
+    if(sub)slide.addText(sub,{x:x+0.15,y:y+h-0.28,w:w-0.3,h:0.22,fontSize:9,fontFace:'Calibri',color:C.mid,margin:0});
+  }
+
+  // ── SLIDE 1: COVER ──
+  const cover=pres.addSlide();
+  cover.background={color:C.dark};
+  cover.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:0.4,h:5.625,fill:{color:'1D4ED8'},line:{color:'1D4ED8'}});
+  cover.addText('Shuttle Service',{x:0.7,y:0.9,w:8.5,h:0.6,fontSize:15,fontFace:'Calibri',color:'6688CC',margin:0,charSpacing:3});
+  cover.addText('Ridership Analysis',{x:0.7,y:1.45,w:8.5,h:1.3,fontSize:48,fontFace:'Syne',color:C.white,bold:true,margin:0});
+  cover.addText('Hayward, CA  ·  Bay Center Pl ↔ Clawiter Rd',{x:0.7,y:2.85,w:8.5,h:0.45,fontSize:14,fontFace:'Calibri',color:'8899BB',margin:0});
+  cover.addShape(pres.shapes.LINE,{x:0.7,y:3.45,w:8.5,h:0,line:{color:'333355',pt:1}});
+  cover.addText(rangeLabel,{x:0.7,y:3.6,w:5,h:0.4,fontSize:13,fontFace:'Calibri',color:'AAAACC',margin:0});
+  cover.addText(`${weeks.length} week${weeks.length!==1?'s':''} of data`,{x:0.7,y:4.05,w:5,h:0.35,fontSize:12,fontFace:'Calibri',color:'666688',margin:0});
+
+  // ── SLIDE 2: KEY METRICS ──
+  const kpi=pres.addSlide();
+  kpi.background={color:C.bg};
+  kpi.addText('Key Metrics',{x:0.5,y:0.28,w:9,h:0.55,fontSize:28,fontFace:'Syne',color:C.dark,bold:true,margin:0});
+  kpi.addText(rangeLabel,{x:0.5,y:0.82,w:9,h:0.28,fontSize:12,fontFace:'Calibri',color:C.faint,margin:0});
+
+  const kpis=[
+    {label:'TOTAL RIDERS',val:grandTotal.toLocaleString(),sub:`${weeks.length} weeks of service`},
+    {label:'AVG PER DAY',val:avgPerDay,sub:'AM + PM combined'},
+    {label:'AVG PER WEEK',val:avgPerWeek,sub:'All shifts'},
+    {label:'AM RIDERS',val:grandAM.toLocaleString(),sub:`${amPct}% of total`,col:C.am},
+    {label:'PM RIDERS',val:grandPM.toLocaleString(),sub:`${pmPct}% of total`,col:C.pm},
+    {label:'OTP',val:overallOtp!==null?overallOtp+'%':'—',sub:hasOtp?`${totalOtpDays-totalLate}/${totalOtpDays} days`:'No data',col:overallOtp>=90?C.green:overallOtp>=75?C.pm:C.red},
+  ];
+  const cw=2.85,ch=1.4,cgap=0.1;
+  kpis.forEach((k,i)=>{
+    const col=i%3,row=Math.floor(i/3);
+    const x=0.5+col*(cw+cgap),y=1.22+row*(ch+cgap);
+    addCard(kpi,x,y,cw,ch,k.label,k.val,k.sub,k.col||C.dark);
+  });
+
+  // ── SLIDE 3: RIDERSHIP TREND ──
+  const trend=pres.addSlide();
+  trend.background={color:C.bg};
+  trend.addText('Weekly Ridership Trend',{x:0.5,y:0.28,w:9,h:0.5,fontSize:26,fontFace:'Syne',color:C.dark,bold:true,margin:0});
+  trend.addText(rangeLabel,{x:0.5,y:0.78,w:9,h:0.28,fontSize:12,fontFace:'Calibri',color:C.faint,margin:0});
+
+  // Insight callout
+  const trendColor=growth>=0?C.green:C.red;
+  const trendArrow=growth>=0?'↑':'↓';
+  trend.addShape(pres.shapes.RECTANGLE,{x:0.5,y:1.12,w:2.6,h:1.5,fill:{color:C.card},line:{color:'E5E5E0',pt:1}});
+  trend.addText('TREND',{x:0.65,y:1.22,w:2.3,h:0.25,fontSize:9,fontFace:'Calibri',color:C.faint,bold:true,charSpacing:2,margin:0});
+  trend.addText(`${trendArrow} ${Math.abs(growth)}%`,{x:0.62,y:1.48,w:2.36,h:0.65,fontSize:34,fontFace:'Calibri',color:trendColor,margin:0});
+  trend.addText(`vs first week`,{x:0.65,y:2.22,w:2.3,h:0.28,fontSize:9,fontFace:'Calibri',color:C.mid,margin:0});
+
+  trend.addShape(pres.shapes.RECTANGLE,{x:0.5,y:2.72,w:1.2,h:0.85,fill:{color:C.card},line:{color:'E5E5E0',pt:1}});
+  trend.addText('PEAK',{x:0.62,y:2.8,w:1.0,h:0.22,fontSize:8,fontFace:'Calibri',color:C.faint,bold:true,charSpacing:2,margin:0});
+  trend.addText(String(peakWk?peakWk.total:0),{x:0.62,y:3.0,w:1.0,h:0.45,fontSize:22,fontFace:'Calibri',color:C.dark,margin:0});
+
+  trend.addShape(pres.shapes.RECTANGLE,{x:1.85,y:2.72,w:1.25,h:0.85,fill:{color:C.card},line:{color:'E5E5E0',pt:1}});
+  trend.addText('WEEKS',{x:1.97,y:2.8,w:1.05,h:0.22,fontSize:8,fontFace:'Calibri',color:C.faint,bold:true,charSpacing:2,margin:0});
+  trend.addText(String(weeks.length),{x:1.97,y:3.0,w:1.05,h:0.45,fontSize:22,fontFace:'Calibri',color:C.dark,margin:0});
+
+  if(weeks.length>1){
+    trend.addChart(pres.charts.LINE,[
+      {name:'Total',labels:weeks.map(w=>wkLabel(w).split('–')[0].trim()),values:weeklyData.map(d=>d.total)},
+      {name:'AM',labels:weeks.map(w=>wkLabel(w).split('–')[0].trim()),values:weeklyData.map(d=>d.amT)},
+      {name:'PM',labels:weeks.map(w=>wkLabel(w).split('–')[0].trim()),values:weeklyData.map(d=>d.pmT)},
+    ],{x:3.3,y:1.0,w:6.4,h:4.5,
+      chartColors:['333355',C.am,C.pm],
+      lineSize:2,lineSmooth:true,
+      chartArea:{fill:{color:C.bg}},
+      catAxisLabelColor:C.faint,valAxisLabelColor:C.faint,
+      valGridLine:{color:'E2E8F0',size:0.5},catGridLine:{style:'none'},
+      showLegend:true,legendPos:'b',legendFontSize:10,legendColor:C.mid,
+    });
+  } else {
+    trend.addText('Add more weeks of data to see trend analysis.',{x:3.3,y:2.5,w:6,h:1,fontSize:13,fontFace:'Calibri',color:C.faint,align:'center',margin:0});
+  }
+
+  // ── SLIDE 4: DAY OF WEEK ANALYSIS ──
+  const dow=pres.addSlide();
+  dow.background={color:C.bg};
+  dow.addText('Day of Week Analysis',{x:0.5,y:0.28,w:9,h:0.5,fontSize:26,fontFace:'Syne',color:C.dark,bold:true,margin:0});
+  dow.addText('Average ridership per day across all weeks',{x:0.5,y:0.78,w:9,h:0.28,fontSize:12,fontFace:'Calibri',color:C.faint,margin:0});
+
+  // Busiest / quietest callouts
+  dow.addShape(pres.shapes.RECTANGLE,{x:0.5,y:1.15,w:2.6,h:1.4,fill:{color:'DBEAFE'},line:{color:'BFDBFE',pt:1}});
+  dow.addText('BUSIEST DAY',{x:0.65,y:1.27,w:2.3,h:0.25,fontSize:9,fontFace:'Calibri',color:C.am,bold:true,charSpacing:2,margin:0});
+  dow.addText(DAYS_NAMES[busiestDayIdx],{x:0.62,y:1.52,w:2.36,h:0.62,fontSize:36,fontFace:'Syne',color:C.am,bold:true,margin:0});
+  dow.addText(`avg ${dayAvgs[busiestDayIdx]} riders`,{x:0.65,y:2.14,w:2.3,h:0.28,fontSize:10,fontFace:'Calibri',color:C.am,margin:0});
+
+  dow.addShape(pres.shapes.RECTANGLE,{x:0.5,y:2.72,w:2.6,h:1.4,fill:{color:'FEF3DC'},line:{color:'FDE68A',pt:1}});
+  dow.addText('LIGHTEST DAY',{x:0.65,y:2.84,w:2.3,h:0.25,fontSize:9,fontFace:'Calibri',color:C.pm,bold:true,charSpacing:2,margin:0});
+  dow.addText(DAYS_NAMES[quietestDayIdx],{x:0.62,y:3.09,w:2.36,h:0.62,fontSize:36,fontFace:'Syne',color:C.pm,bold:true,margin:0});
+  dow.addText(`avg ${dayAvgs[quietestDayIdx]} riders`,{x:0.65,y:3.71,w:2.3,h:0.28,fontSize:10,fontFace:'Calibri',color:C.pm,margin:0});
+
+  dow.addChart(pres.charts.BAR,[
+    {name:'AM avg',labels:DAYS_NAMES,values:DAYS_NAMES.map((_,di)=>Math.round(weeklyData.reduce((s,w)=>s+w.amByDay[di],0)/Math.max(weeks.length,1)))},
+    {name:'PM avg',labels:DAYS_NAMES,values:DAYS_NAMES.map((_,di)=>Math.round(weeklyData.reduce((s,w)=>s+w.pmByDay[di],0)/Math.max(weeks.length,1)))},
+  ],{x:3.3,y:1.0,w:6.4,h:4.5,barDir:'col',barGrouping:'stacked',
+    chartColors:[C.am,C.pm],
+    chartArea:{fill:{color:C.bg}},
+    catAxisLabelColor:C.faint,valAxisLabelColor:C.faint,
+    valGridLine:{color:'E2E8F0',size:0.5},catGridLine:{style:'none'},
+    showValue:false,
+    showLegend:true,legendPos:'b',legendFontSize:10,legendColor:C.mid,
+  });
+
+  // ── SLIDE 5: AM vs PM BREAKDOWN ──
+  const split=pres.addSlide();
+  split.background={color:C.bg};
+  split.addText('AM vs PM Breakdown',{x:0.5,y:0.28,w:9,h:0.5,fontSize:26,fontFace:'Syne',color:C.dark,bold:true,margin:0});
+  split.addText('Shift comparison across the full period',{x:0.5,y:0.78,w:9,h:0.28,fontSize:12,fontFace:'Calibri',color:C.faint,margin:0});
+
+  // AM card
+  split.addShape(pres.shapes.RECTANGLE,{x:0.5,y:1.15,w:4.5,h:3.2,fill:{color:'EFF6FF'},line:{color:'BFDBFE',pt:1}});
+  split.addShape(pres.shapes.RECTANGLE,{x:0.5,y:1.15,w:4.5,h:0.08,fill:{color:C.am},line:{color:C.am}});
+  split.addText('AM SHIFT  ·  5:15 – 6:30',{x:0.65,y:1.32,w:4.2,h:0.3,fontSize:10,fontFace:'Calibri',color:C.am,bold:true,charSpacing:1,margin:0});
+  split.addText(grandAM.toLocaleString(),{x:0.65,y:1.65,w:4.2,h:0.85,fontSize:52,fontFace:'Calibri',color:C.am,bold:false,margin:0});
+  split.addText('total riders',{x:0.65,y:2.52,w:4.2,h:0.3,fontSize:11,fontFace:'Calibri',color:'4472C4',margin:0});
+  split.addText(`${amPct}% of all ridership`,{x:0.65,y:2.88,w:4.2,h:0.28,fontSize:11,fontFace:'Calibri',color:'4472C4',margin:0});
+  split.addText(`Avg ${avgAMPerDay} riders/day`,{x:0.65,y:3.22,w:4.2,h:0.28,fontSize:11,fontFace:'Calibri',color:'4472C4',margin:0});
+
+  // PM card
+  split.addShape(pres.shapes.RECTANGLE,{x:5.2,y:1.15,w:4.5,h:3.2,fill:{color:'FFFBEB'},line:{color:'FDE68A',pt:1}});
+  split.addShape(pres.shapes.RECTANGLE,{x:5.2,y:1.15,w:4.5,h:0.08,fill:{color:C.pm},line:{color:C.pm}});
+  split.addText('PM SHIFT  ·  2:35 – 3:35',{x:5.35,y:1.32,w:4.2,h:0.3,fontSize:10,fontFace:'Calibri',color:C.pm,bold:true,charSpacing:1,margin:0});
+  split.addText(grandPM.toLocaleString(),{x:5.35,y:1.65,w:4.2,h:0.85,fontSize:52,fontFace:'Calibri',color:C.pm,bold:false,margin:0});
+  split.addText('total riders',{x:5.35,y:2.52,w:4.2,h:0.3,fontSize:11,fontFace:'Calibri',color:'92400E',margin:0});
+  split.addText(`${pmPct}% of all ridership`,{x:5.35,y:2.88,w:4.2,h:0.28,fontSize:11,fontFace:'Calibri',color:'92400E',margin:0});
+  split.addText(`Avg ${avgPMPerDay} riders/day`,{x:5.35,y:3.22,w:4.2,h:0.28,fontSize:11,fontFace:'Calibri',color:'92400E',margin:0});
+
+  // Pie chart
+  split.addChart(pres.charts.PIE,[
+    {name:'Shift',labels:['AM','PM'],values:[grandAM,grandPM]},
+  ],{x:2.5,y:4.45,w:5,h:1.0,
+    chartColors:[C.am,C.pm],
+    showPercent:true,dataLabelFontSize:11,dataLabelColor:C.white,
+    showLegend:false,
+    chartArea:{fill:{color:C.bg}},
+  });
+
+  // ── SLIDE 6: OTP (if data) ──
+  if(hasOtp){
+    const otpSlide=pres.addSlide();
+    otpSlide.background={color:C.bg};
+    otpSlide.addText('On-Time Performance',{x:0.5,y:0.28,w:9,h:0.5,fontSize:26,fontFace:'Syne',color:C.dark,bold:true,margin:0});
+    otpSlide.addText(rangeLabel,{x:0.5,y:0.78,w:9,h:0.28,fontSize:12,fontFace:'Calibri',color:C.faint,margin:0});
+
+    const otpColor=overallOtp>=90?C.green:overallOtp>=75?C.pm:C.red;
+    otpSlide.addShape(pres.shapes.RECTANGLE,{x:0.5,y:1.15,w:3.0,h:2.8,fill:{color:C.card},line:{color:'E5E5E0',pt:1}});
+    otpSlide.addText('OVERALL OTP',{x:0.65,y:1.28,w:2.7,h:0.28,fontSize:9,fontFace:'Calibri',color:C.faint,bold:true,charSpacing:2,margin:0});
+    otpSlide.addText(overallOtp+'%',{x:0.6,y:1.58,w:2.8,h:1.1,fontSize:64,fontFace:'Calibri',color:otpColor,bold:false,margin:0});
+    otpSlide.addText(`${totalOtpDays-totalLate} of ${totalOtpDays} days on time`,{x:0.65,y:2.75,w:2.7,h:0.3,fontSize:10,fontFace:'Calibri',color:C.mid,margin:0});
+    otpSlide.addText(`${totalLate} late arrival${totalLate!==1?'s':''}`,{x:0.65,y:3.08,w:2.7,h:0.28,fontSize:10,fontFace:'Calibri',color:totalLate>0?C.red:C.green,margin:0});
+
+    // Weekly OTP line chart
+    const otpWeeks=weeks.filter(wk=>all[wk].otp&&all[wk].otp.late!=null);
+    if(otpWeeks.length>1){
+      otpSlide.addChart(pres.charts.LINE,[
+        {name:'OTP %',labels:otpWeeks.map(w=>wkLabel(w).split('–')[0].trim()),
+         values:otpWeeks.map(wk=>{const o=all[wk].otp,d=o.days||5;return Math.round(((d-o.late)/d)*100);})},
+      ],{x:3.7,y:1.0,w:6.0,h:3.2,
+        chartColors:[C.green],lineSize:3,lineSmooth:true,
+        chartArea:{fill:{color:C.bg}},
+        catAxisLabelColor:C.faint,valAxisLabelColor:C.faint,
+        valAxisMinVal:0,valAxisMaxVal:100,
+        valGridLine:{color:'E2E8F0',size:0.5},catGridLine:{style:'none'},
+        showValue:true,dataLabelFontSize:9,dataLabelColor:C.dark,
+        showLegend:false,
+      });
+    }
+  }
+
+  // ── CLOSING SLIDE ──
+  const end=pres.addSlide();
+  end.background={color:C.dark};
+  end.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:0.4,h:5.625,fill:{color:'1D4ED8'},line:{color:'1D4ED8'}});
+  end.addText('Thank you',{x:0.8,y:1.6,w:8.5,h:1.2,fontSize:48,fontFace:'Syne',color:C.white,bold:true,margin:0});
+  end.addText('Shuttle Ops  ·  Hayward, CA',{x:0.8,y:3.0,w:8.5,h:0.45,fontSize:14,fontFace:'Calibri',color:'8899BB',margin:0});
+  end.addText('Bay Center Place ↔ Clawiter Rd',{x:0.8,y:3.5,w:8.5,h:0.4,fontSize:13,fontFace:'Calibri',color:'666688',margin:0});
+
+  await pres.writeFile({fileName:`Shuttle_Analysis_${fromWk}_to_${toWk}.pptx`});
+  btn.textContent='Download PPTX';btn.disabled=false;
+  closeReportModal();
+}
+</script>
+</body>
+</html>
